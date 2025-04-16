@@ -2,223 +2,160 @@
 //  HomeViewController.swift
 //  SRMHealthApp
 //
-//  Created by Sanidhya's MacBook Pro on 10/04/25.
+//  Updated to include a personalized greeting for the logged-in user
 //
 
-
-//
-//  HomeViewController.swift
-//  SRMHealthApp
-//
-//  Created on 2025-04-10.
-//
-
-import FirebaseAuth
 import UIKit
+import FirebaseAuth
+import FirebaseFirestore
 
-class HomeViewController: UIViewController {
+class HomeViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
 
-    let scrollView: UIScrollView = {
-        let scrollView = UIScrollView()
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        return scrollView
-    }()
-    
-    let contentView: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
-    let labTestsButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("🧪 Lab Tests", for: .normal)
-        button.backgroundColor = .systemGreen
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(labTestsTapped), for: .touchUpInside)
-        return button
-    }()
-    
-    let medicinesButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("💊 Buy Medicines", for: .normal)
-        button.backgroundColor = .systemBlue
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(medicinesTapped), for: .touchUpInside)
-        return button
-    }()
-    
-    let findDocButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("👨‍⚕️ Find Doctor", for: .normal)
-        button.backgroundColor = .systemOrange
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(findDocTapped), for: .touchUpInside)
-        return button
-    }()
-    
-    let healthArticlesButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("📰 Health Articles", for: .normal)
-        button.backgroundColor = .systemPurple
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(healthArticlesTapped), for: .touchUpInside)
-        return button
-    }()
-    
-    let orderDetailsButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("📦 Order Details", for: .normal)
-        button.backgroundColor = .systemRed
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(orderDetailsTapped), for: .touchUpInside)
-        return button
-    }()
-    
-    let cartButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("🛒 Cart", for: .normal)
-        button.backgroundColor = .systemTeal
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 10
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(cartTapped), for: .touchUpInside)
-        return button
-    }()
-    
-    let logoutButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("Logout", for: .normal)
-        button.tintColor = .blue
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
-        return button
-    }()
-    
+    // MARK: - Properties
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private var userName: String? // To store the user's name
+
+    // Data for the settings-like table view
+    private let sections = [
+        ("Health Services", [
+            ("🧪 Lab Tests", UIColor.systemGreen, #selector(labTestsTapped)),
+            ("💊 Buy Medicines", UIColor.systemBlue, #selector(medicinesTapped)),
+            ("👨‍⚕️ Find Doctor", UIColor.systemOrange, #selector(findDocTapped)),
+            ("📰 Health Articles", UIColor.systemPurple, #selector(healthArticlesTapped)),
+        ]),
+        ("Orders", [
+            ("📦 Order Details", UIColor.systemRed, #selector(orderDetailsTapped)),
+            ("🛒 Cart", UIColor.systemTeal, #selector(cartTapped)),
+        ]),
+        ("Account", [
+            ("Profile", UIColor.systemBlue, #selector(profileTapped)),
+            ("Logout", UIColor.systemRed, #selector(logoutTapped))
+        ])
+    ]
+
+    // MARK: - Lifecycle
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
-        setupViews()
+        setupView()
+        setupTableView()
+        fetchUserName()
+    }
+
+    // MARK: - Setup Functions
+
+    private func setupView() {
+        view.backgroundColor = .systemBackground
         title = "Home"
         navigationItem.hidesBackButton = true
     }
-    
-    func setupViews() {
-        view.addSubview(scrollView)
-        scrollView.addSubview(contentView)
-        contentView.addSubview(labTestsButton)
-        contentView.addSubview(medicinesButton)
-        contentView.addSubview(findDocButton)
-        contentView.addSubview(healthArticlesButton)
-        contentView.addSubview(orderDetailsButton)
-        contentView.addSubview(cartButton)
-        contentView.addSubview(logoutButton)
-        
+
+    private func setupTableView() {
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        view.addSubview(tableView)
+
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            
-            labTestsButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            labTestsButton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 50),
-            labTestsButton.widthAnchor.constraint(equalToConstant: 250),
-            labTestsButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            medicinesButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            medicinesButton.topAnchor.constraint(equalTo: labTestsButton.bottomAnchor, constant: 20),
-            medicinesButton.widthAnchor.constraint(equalToConstant: 250),
-            medicinesButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            findDocButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            findDocButton.topAnchor.constraint(equalTo: medicinesButton.bottomAnchor, constant: 20),
-            findDocButton.widthAnchor.constraint(equalToConstant: 250),
-            findDocButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            healthArticlesButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            healthArticlesButton.topAnchor.constraint(equalTo: findDocButton.bottomAnchor, constant: 20),
-            healthArticlesButton.widthAnchor.constraint(equalToConstant: 250),
-            healthArticlesButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            orderDetailsButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            orderDetailsButton.topAnchor.constraint(equalTo: healthArticlesButton.bottomAnchor, constant: 20),
-            orderDetailsButton.widthAnchor.constraint(equalToConstant: 250),
-            orderDetailsButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            cartButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            cartButton.topAnchor.constraint(equalTo: orderDetailsButton.bottomAnchor, constant: 20),
-            cartButton.widthAnchor.constraint(equalToConstant: 250),
-            cartButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            logoutButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            logoutButton.topAnchor.constraint(equalTo: cartButton.bottomAnchor, constant: 20),
-            logoutButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -50)
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
     }
-    
-    @objc func labTestsTapped() {
+
+    private func fetchUserName() {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        let db = Firestore.firestore()
+        db.collection("users").document(userId).getDocument { [weak self] snapshot, error in
+            guard let self = self, error == nil, let data = snapshot?.data() else { return }
+            self.userName = data["name"] as? String
+            self.title = "Hi, \(self.userName ?? "User")!" // Update the greeting
+        }
+    }
+
+    // MARK: - UITableView DataSource & Delegate
+
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return sections.count
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return sections[section].1.count
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        return sections[section].0
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+        let item = sections[indexPath.section].1[indexPath.row]
+
+        // Configure cell appearance
+        cell.textLabel?.text = item.0
+        cell.textLabel?.font = UIFont.systemFont(ofSize: 17)
+        cell.textLabel?.textColor = item.1
+        cell.accessoryType = .disclosureIndicator
+
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let selector = sections[indexPath.section].1[indexPath.row].2
+        performSelector(onMainThread: selector, with: nil, waitUntilDone: true)
+        tableView.deselectRow(at: indexPath, animated: true)
+    }
+
+    // MARK: - Button Actions
+
+    @objc private func profileTapped() {
+        let profileVC = ProfileViewController()
+        navigationController?.pushViewController(profileVC, animated: true)
+    }
+
+    @objc private func labTestsTapped() {
         let labTestsVC = LabTestsViewController()
         navigationController?.pushViewController(labTestsVC, animated: true)
     }
-    
-    @objc func medicinesTapped() {
+
+    @objc private func medicinesTapped() {
         let medicinesVC = MedicinesViewController()
         navigationController?.pushViewController(medicinesVC, animated: true)
     }
-    
-    @objc func findDocTapped() {
+
+    @objc private func findDocTapped() {
         let doctorsVC = DoctorsViewController()
         navigationController?.pushViewController(doctorsVC, animated: true)
     }
-    
-    @objc func healthArticlesTapped() {
+
+    @objc private func healthArticlesTapped() {
         let healthArticlesVC = HealthArticlesViewController()
         navigationController?.pushViewController(healthArticlesVC, animated: true)
     }
-    
-    @objc func orderDetailsTapped() {
+
+    @objc private func orderDetailsTapped() {
         let orderDetailsVC = OrderDetailsViewController()
         navigationController?.pushViewController(orderDetailsVC, animated: true)
     }
-    
-    @objc func cartTapped() {
+
+    @objc private func cartTapped() {
         let cartVC = CartViewController()
         navigationController?.pushViewController(cartVC, animated: true)
     }
-    
-    @objc func logoutTapped() {
+
+    @objc private func logoutTapped() {
         do {
             try Auth.auth().signOut()
             navigationController?.popToRootViewController(animated: true)
-        } catch let signOutError as NSError {
-            print("Error signing out: %@", signOutError)
-            showAlert(message: "Error signing out. Please try again.")
+        } catch {
+            presentErrorAlert(message: "Error signing out. Please try again.")
         }
     }
-    
-    private func showAlert(message: String) {
+
+    private func presentErrorAlert(message: String) {
         let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
