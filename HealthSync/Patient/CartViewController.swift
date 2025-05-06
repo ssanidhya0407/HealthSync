@@ -591,8 +591,48 @@ class CartViewController: UIViewController, UITableViewDelegate, UITableViewData
         if prescriptionRequired {
             showPrescriptionRequiredAlert()
         } else {
-            proceedToCheckout()
         }
+        askForOTP()
+    }
+    
+    
+    private func askForOTP() {
+        let alert = UIAlertController(
+            title: "Enter Payment OTP",
+            message: "Please enter the OTP provided by the store to complete your payment.",
+            preferredStyle: .alert
+        )
+        
+        alert.addTextField { textField in
+            textField.placeholder = "Enter OTP"
+            textField.keyboardType = .numberPad
+        }
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        alert.addAction(UIAlertAction(title: "Submit", style: .default) { [weak self, weak alert] _ in
+            guard let otp = alert?.textFields?.first?.text else { return }
+            
+            if otp == "1234" {
+                self?.proceedToCheckout()
+            } else {
+                self?.showAlert(title: "Invalid OTP", message: "The OTP you entered is incorrect. Please try again.")
+            }
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(
+            title: title,
+            message: message,
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        
+        present(alert, animated: true)
     }
     
     private func showPrescriptionRequiredAlert() {
